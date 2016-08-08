@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-// Package xzwriter provides a writer XZWriter that pipes through an external XZ
-// compressor.
+// Package xzwriter provides a WriteCloser XZWriter that pipes through an
+// external XZ compressor.
 //
 // Expects the Tukaani XZ tool in $PATH. See the XZ Utils home page:
 // <http://tukaani.org/xz/>
@@ -27,18 +27,18 @@ import (
 	"os/exec"
 )
 
-// XZWriter is a writer that wraps a writer around an XZ compressor.
+// XZWriter is a WriteCloser that wraps a writer around an XZ compressor.
 type XZWriter struct {
 	cmd  *exec.Cmd
 	pipe io.WriteCloser
 }
 
-// New returns an XZWriter, wrapping another writer.
+// New returns an XZWriter, wrapping the writer w.
 func New(w io.Writer) (xzwriter *XZWriter, err error) {
 	return NewWithContext(context.Background(), w)
 }
 
-// NewWithContext returns an XZWriter, wrapping another writer. The Context may
+// NewWithContext returns an XZWriter, wrapping the writer w. The context may
 // be used to cancel or timeout the external compressor process.
 //
 // The context can be used to kill the external process early. You still need to
@@ -73,7 +73,7 @@ func (xz *XZWriter) Write(p []byte) (n int, err error) {
 	return xz.pipe.Write(p)
 }
 
-// Close implements the io.Writer interface.
+// Close implements the io.Closer interface.
 func (xz *XZWriter) Close() error {
 	errPipe := xz.pipe.Close()
 	errWait := xz.cmd.Wait()
