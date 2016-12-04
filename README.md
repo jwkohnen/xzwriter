@@ -9,5 +9,9 @@ compressor.
 Expects the Tukaani XZ tool in $PATH. See the XZ Utils home page:
 <http://tukaani.org/xz/>
 
+## License
 As this is a trivial convenience package, you should probably not import this. Anyway
 licensed under the Apache License, Version 2.0.
+
+## See also
+https://github.com/ulikunitz/xz
