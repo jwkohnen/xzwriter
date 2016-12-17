@@ -15,16 +15,25 @@
  */
 
 // Package xzwriter provides a WriteCloser XZWriter that pipes through an
-// external XZ compressor.
+// XZ compressor.
 //
-// Expects the Tukaani XZ tool in $PATH. See the XZ Utils home page:
-// <http://tukaani.org/xz/>
+// Uses the Tukaani XZ tool in $PATH if available. See the XZ Utils home page:
+// <http://tukaani.org/xz/>. If the XZ Utils are not found, XZWriter will
+// fall back to the Go native implementation by Ulrich Kunitz
+// <https://github.com/ulikunitz/xz>.
+//
+// WARNING: The xz writer by Ulrich Kunitz is alpha quality software and may
+// destroy your data. This packages hides the fact which compressor will be
+// used. If you have high expections on integrity, prepend a hasher to the
+// writer chain, re-read written data and compare!
 package xzwriter
 
 import (
-	"context"
 	"io"
 	"os/exec"
+	"strings"
+
+	ukxz "github.com/ulikunitz/xz"
 )
 
 // XZWriter is a WriteCloser that wraps a writer around an XZ compressor.
@@ -34,38 +43,46 @@ type XZWriter struct {
 }
 
 // New returns an XZWriter, wrapping the writer w.
-func New(w io.Writer) (xzwriter *XZWriter, err error) {
-	return NewWithContext(context.Background(), w)
-}
-
-// NewWithContext returns an XZWriter, wrapping the writer w. The context may
-// be used to cancel or timeout the external compressor process.
-//
-// The context can be used to kill the external process early. You still need to
-// call Close() to clean up ressources. Alternatively you may call Close()
-// prematurely.
-func NewWithContext(ctx context.Context, w io.Writer) (*XZWriter, error) {
+func New(w io.Writer) (*XZWriter, error) {
 	xz := &XZWriter{}
 	var err error
 
-	if ctx == nil {
-		panic("nil Context")
+	if xzPath == "" {
+		uxz, err := ukxz.NewWriter(w)
+		if err != nil {
+			return nil, err
+		}
+		xz.pipe = uxz
+
+		return xz, nil
 	}
 
-	xz.cmd = exec.CommandContext(ctx, "xz", "--quiet", "--compress",
-		"--stdout", "--best", "-")
-	xz.cmd.Stdout = w
-	xz.pipe, err = xz.cmd.StdinPipe()
+	cmd, pipe, err := xzCmd(w)
 	if err != nil {
 		return nil, err
 	}
-
-	err = xz.cmd.Start()
-	if err != nil {
-		return nil, err
-	}
+	xz.cmd = cmd
+	xz.pipe = pipe
 
 	return xz, err
+}
+
+func xzCmd(w io.Writer) (*exec.Cmd, io.WriteCloser, error) {
+	cmd := exec.Command(xzPath, "--quiet", "--compress",
+		"--stdout", "--best", "-")
+	cmd.Stdout = w
+
+	pipe, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = cmd.Start()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return cmd, pipe, nil
 }
 
 // Write implements the io.Writer interface.
@@ -75,12 +92,38 @@ func (xz *XZWriter) Write(p []byte) (n int, err error) {
 
 // Close implements the io.Closer interface.
 func (xz *XZWriter) Close() error {
-	errPipe := xz.pipe.Close()
-	errWait := xz.cmd.Wait()
+	var errPipe, errWait error
+
+	errPipe = xz.pipe.Close()
+	if xz.cmd != nil {
+		errWait = xz.cmd.Wait()
+	}
 	if errPipe != nil {
 		return errPipe
 	}
 	return errWait
 }
 
-var _ io.WriteCloser = &XZWriter{} // assert
+var (
+	xzPath = findXZ()
+
+	// type asserts
+	_ io.WriteCloser = &XZWriter{}
+	_ io.WriteCloser = &ukxz.Writer{}
+)
+
+func findXZ() string {
+	path, err := exec.LookPath("xz")
+	if err != nil {
+		return ""
+	}
+	cmd := exec.Command(path, "--help")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return ""
+	}
+	if !strings.Contains(string(out), "<http://tukaani.org/xz/>") {
+		return ""
+	}
+	return path
+}
