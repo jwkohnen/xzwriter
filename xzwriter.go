@@ -49,7 +49,7 @@ func NewWithContext(ctx context.Context, w io.Writer) (*XZWriter, error) {
 	var err error
 
 	if ctx == nil {
-		ctx = context.Background()
+		panic("nil Context")
 	}
 
 	xz.cmd = exec.CommandContext(ctx, "xz", "--quiet", "--compress",
