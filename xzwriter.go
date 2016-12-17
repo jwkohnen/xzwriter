@@ -82,3 +82,5 @@ func (xz *XZWriter) Close() error {
 	}
 	return errWait
 }
+
+var _ io.WriteCloser = &XZWriter{} // assert
