@@ -8,13 +8,13 @@ import (
 	"testing"
 )
 
-func TestRead(t *testing.T) {
+func doTestRead(ctx context.Context, t *testing.T) {
 	f, err := os.Open("test.xz")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	r, err := NewReader(context.Background(), f)
+	r, err := NewReader(ctx, f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +27,7 @@ func TestRead(t *testing.T) {
 	}
 }
 
-func BenchmarkReader(b *testing.B) {
+func doBenchmarkReader(ctx context.Context, b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		func() {
 			f, err := os.Open("test.xz")
@@ -35,7 +35,7 @@ func BenchmarkReader(b *testing.B) {
 				b.Fatal(err)
 			}
 			defer f.Close()
-			r, err := NewReader(context.Background(), f)
+			r, err := NewReader(ctx, f)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -45,4 +45,22 @@ func BenchmarkReader(b *testing.B) {
 			}
 		}()
 	}
+}
+
+func TestReader(t *testing.T) {
+	doTestRead(context.Background(), t)
+}
+
+func TestReaderUKXZ(t *testing.T) {
+	ctx := ForceUKXZ(context.Background())
+	doTestRead(ctx, t)
+}
+
+func BenchmarkReader(b *testing.B) {
+	doBenchmarkReader(context.Background(), b)
+}
+
+func BenchmarkReaderUKXZ(b *testing.B) {
+	ctx := ForceUKXZ(context.Background())
+	doBenchmarkReader(ctx, b)
 }
