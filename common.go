@@ -2,6 +2,7 @@ package xz
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os/exec"
 
@@ -30,4 +31,19 @@ func findXZ() string {
 		return ""
 	}
 	return path
+}
+
+type modeKey struct {
+	name string
+}
+
+var modeForceUKXZ = &modeKey{"force UKXZ"}
+
+func forceUKXZ(ctx context.Context) context.Context {
+	return context.WithValue(ctx, modeForceUKXZ, true)
+}
+
+func isForceUKXZ(ctx context.Context) bool {
+	v, _ := ctx.Value(modeForceUKXZ).(bool)
+	return v
 }
