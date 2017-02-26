@@ -26,25 +26,24 @@
 // destroy your data. This packages hides the fact which compressor will be
 // used. If you have high expections on integrity, prepend a hasher to the
 // writer chain, re-read written data and compare!
-package xzwriter
+package xz
 
 import (
 	"io"
 	"os/exec"
-	"strings"
 
 	ukxz "github.com/ulikunitz/xz"
 )
 
-// XZWriter is a WriteCloser that wraps a writer around an XZ compressor.
-type XZWriter struct {
+// Writer is a WriteCloser that wraps a writer around an XZ compressor.
+type Writer struct {
 	cmd  *exec.Cmd
 	pipe io.WriteCloser
 }
 
-// New returns an XZWriter, wrapping the writer w.
-func New(w io.Writer) (*XZWriter, error) {
-	xz := &XZWriter{}
+// NewWriter returns an Writer, wrapping the writer w.
+func NewWriter(w io.Writer) (*Writer, error) {
+	xz := &Writer{}
 	var err error
 
 	if xzPath == "" {
@@ -86,12 +85,12 @@ func xzCmd(w io.Writer) (*exec.Cmd, io.WriteCloser, error) {
 }
 
 // Write implements the io.Writer interface.
-func (xz *XZWriter) Write(p []byte) (n int, err error) {
+func (xz *Writer) Write(p []byte) (n int, err error) {
 	return xz.pipe.Write(p)
 }
 
 // Close implements the io.Closer interface.
-func (xz *XZWriter) Close() error {
+func (xz *Writer) Close() error {
 	var errPipe, errWait error
 
 	errPipe = xz.pipe.Close()
@@ -102,28 +101,4 @@ func (xz *XZWriter) Close() error {
 		return errPipe
 	}
 	return errWait
-}
-
-var (
-	xzPath = findXZ()
-
-	// type asserts
-	_ io.WriteCloser = &XZWriter{}
-	_ io.WriteCloser = &ukxz.Writer{}
-)
-
-func findXZ() string {
-	path, err := exec.LookPath("xz")
-	if err != nil {
-		return ""
-	}
-	cmd := exec.Command(path, "--help")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return ""
-	}
-	if !strings.Contains(string(out), "<http://tukaani.org/xz/>") {
-		return ""
-	}
-	return path
 }
