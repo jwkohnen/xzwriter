@@ -23,34 +23,42 @@ package xzwriter
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os/exec"
+	"runtime"
 )
 
 // XZWriter is a WriteCloser that wraps a writer around an XZ compressor.
 type XZWriter struct {
-	cmd  *exec.Cmd
-	pipe io.WriteCloser
+	cmd                             *exec.Cmd
+	pipe                            io.WriteCloser
+	skipExtraStackFramesOnFinalizer int
 }
 
 // New returns an XZWriter, wrapping the writer w.
 func New(w io.Writer) (xzwriter *XZWriter, err error) {
-	return NewWithContext(context.Background(), w)
+	xzWriter, err := NewWithContext(context.Background(), w)
+	if err != nil {
+		return nil, err
+	}
+	xzWriter.skipExtraStackFramesOnFinalizer = 1
+	return xzWriter, nil
 }
 
 // NewWithContext returns an XZWriter, wrapping the writer w. The context may
 // be used to cancel or timeout the external compressor process.
 //
 // The context can be used to kill the external process early. You still need to
-// call Close() to clean up ressources. Alternatively you may call Close()
+// call Close() to clean up resources. Alternatively you may call Close()
 // prematurely.
 func NewWithContext(ctx context.Context, w io.Writer) (*XZWriter, error) {
-	xz := &XZWriter{}
-	var err error
-
 	if ctx == nil {
 		panic("nil Context")
 	}
+
+	xz := new(XZWriter)
+	var err error
 
 	xz.cmd = exec.CommandContext(ctx, "xz", "--quiet", "--compress",
 		"--stdout", "--best", "-")
@@ -65,6 +73,7 @@ func NewWithContext(ctx context.Context, w io.Writer) (*XZWriter, error) {
 		return nil, err
 	}
 
+	xz.activateSharpEdgedFinalizer(ctx)
 	return xz, err
 }
 
@@ -75,6 +84,7 @@ func (xz *XZWriter) Write(p []byte) (n int, err error) {
 
 // Close implements the io.Closer interface.
 func (xz *XZWriter) Close() error {
+	xz.deactivateSharpEdgedFinalizer()
 	errPipe := xz.pipe.Close()
 	errWait := xz.cmd.Wait()
 	if errPipe != nil {
@@ -83,4 +93,19 @@ func (xz *XZWriter) Close() error {
 	return errWait
 }
 
-var _ io.WriteCloser = &XZWriter{} // assert
+// https://crawshaw.io/blog/sharp-edged-finalizers
+func (xz *XZWriter) activateSharpEdgedFinalizer(ctx context.Context) {
+	_, file, line, _ := runtime.Caller(2 + xz.skipExtraStackFramesOnFinalizer)
+	runtime.SetFinalizer(xz, func(_ *XZWriter) {
+		panic(fmt.Errorf("xzwriter created at %s:%d, but never canceled", file, line))
+	})
+}
+
+func (xz *XZWriter) deactivateSharpEdgedFinalizer() { runtime.SetFinalizer(xz, nil) }
+
+var (
+	// assert
+	_ io.WriteCloser = &XZWriter{}
+)
+
+type blankContextDiscriminatorKey int
