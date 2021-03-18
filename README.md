@@ -1,7 +1,7 @@
 # xzwriter: a trivial Go library for compressing with XZ.
 
 [![Apache License v2.0](https://img.shields.io/badge/license-Apache%20License%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0.txt)
-[![GoDoc](https://godoc.org/github.com/wjkohnen/xzwriter?status.svg)](https://godoc.org/github.com/wjkohnen/xzwriter)
+[![GoDoc](https://godoc.org/github.com/jwkohnen/xzwriter?status.svg)](https://godoc.org/github.com/jwkohnen/xzwriter)
 
 Package xzwriter provides a writer XZWriter that pipes through an external XZ
 compressor.
