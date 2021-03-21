@@ -109,11 +109,13 @@ func (xz *XZWriter) Write(p []byte) (n int, err error) {
 // Close implements the io.Closer interface.
 func (xz *XZWriter) Close() error {
 	errPipe := xz.pipe.Close()
+
 	errWait := xz.cmd.Wait()
-	if errPipe != nil {
-		return errPipe
+	if errWait != nil {
+		return errWait
 	}
-	return errWait
+
+	return errPipe
 }
 
 func (xz *XZWriter) compileArgs() []string {
