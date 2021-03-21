@@ -25,16 +25,18 @@ import (
 	"context"
 	"io"
 	"os/exec"
+	"strconv"
 )
 
 // XZWriter is a WriteCloser that wraps a writer around an XZ compressor.
 type XZWriter struct {
 	cmd  *exec.Cmd
 	pipe io.WriteCloser
+	opts options
 }
 
 // New returns an XZWriter, wrapping the writer w.
-func New(w io.Writer) (xzwriter *XZWriter, err error) {
+func New(w io.Writer) (*XZWriter, error) {
 	return NewWithContext(context.Background(), w)
 }
 
@@ -45,16 +47,47 @@ func New(w io.Writer) (xzwriter *XZWriter, err error) {
 // call Close() to clean up ressources. Alternatively you may call Close()
 // prematurely.
 func NewWithContext(ctx context.Context, w io.Writer) (*XZWriter, error) {
-	xz := &XZWriter{}
-	var err error
+	return NewWithOptions(ctx, w)
+}
 
+// NewWithOptions returns an XZWriter, wrapping the writer w.  The context may
+// be used to cancel or timeout the external compressor process.
+//
+// The context can be used to kill the external process early. You still need to
+// call Close() to clean up ressources. Alternatively you may call Close()
+// prematurely.
+//
+// The compressor process can be configured with options.
+func NewWithOptions(ctx context.Context, w io.Writer, opts ...Option) (*XZWriter, error) {
 	if ctx == nil {
 		panic("nil Context")
 	}
 
-	xz.cmd = exec.CommandContext(ctx, "xz", "--quiet", "--compress",
-		"--stdout", "--best", "-")
+	xz := &XZWriter{
+		// default options
+		opts: options{
+			compressLevel: Best,
+		},
+	}
+
+	for _, opt := range opts {
+		if err := opt(xz); err != nil {
+			return nil, err
+		}
+	}
+
+	xz.cmd = exec.CommandContext(ctx, "xz", xz.compileArgs()...)
 	xz.cmd.Stdout = w
+
+	if xz.opts.verboseWriter != nil {
+		xz.cmd.Stderr = xz.opts.verboseWriter
+	}
+
+	if xz.opts.separateProcessGroup {
+		xz.cmd.SysProcAttr = sysProcAttr()
+	}
+
+	var err error
 	xz.pipe, err = xz.cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -81,6 +114,24 @@ func (xz *XZWriter) Close() error {
 		return errPipe
 	}
 	return errWait
+}
+
+func (xz *XZWriter) compileArgs() []string {
+	compressLevel := "-" + strconv.Itoa(xz.opts.compressLevel)
+
+	args := []string{"--compress", "--stdout", compressLevel}
+
+	if xz.opts.extreme {
+		args = append(args, "--extreme")
+	}
+
+	if xz.opts.verboseWriter != nil {
+		args = append(args, "--verbose")
+	} else {
+		args = append(args, "--quiet")
+	}
+
+	return append(args, "--", "-")
 }
 
 var _ io.WriteCloser = &XZWriter{} // assert
