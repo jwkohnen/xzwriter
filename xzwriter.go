@@ -63,15 +63,15 @@ func NewWithOptions(ctx context.Context, w io.Writer, opts ...Option) (*XZWriter
 		panic("nil Context")
 	}
 
-	xz := &XZWriter{
+	xz := XZWriter{
 		// default options
 		opts: options{
-			compressLevel: Best,
+			compressLevel: Default,
 		},
 	}
 
 	for _, opt := range opts {
-		if err := opt(xz); err != nil {
+		if err := opt(&xz); err != nil {
 			return nil, err
 		}
 	}
@@ -98,7 +98,7 @@ func NewWithOptions(ctx context.Context, w io.Writer, opts ...Option) (*XZWriter
 		return nil, err
 	}
 
-	return xz, err
+	return &xz, err
 }
 
 // Write implements the io.Writer interface.
@@ -136,4 +136,4 @@ func (xz *XZWriter) compileArgs() []string {
 	return append(args, "--", "-")
 }
 
-var _ io.WriteCloser = &XZWriter{} // assert
+var _ io.WriteCloser = (*XZWriter)(nil) // assert

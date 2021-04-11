@@ -17,9 +17,11 @@ const (
 	Best    = 9
 )
 
+// WithCompressLevel sets the compression level between 0 and 9.  The constants `Fast`, `Default` and `Best` correspond
+// to the flags `--fast`, `--default` and `--best`.
 func WithCompressLevel(l int) Option {
 	return func(xz *XZWriter) error {
-		if l < 0 || l > 9 {
+		if l < Fast || l > Best {
 			return ErrOptionIllegal
 		}
 
@@ -29,6 +31,7 @@ func WithCompressLevel(l int) Option {
 	}
 }
 
+// WithExtreme set the `--extreme` flag.
 func WithExtreme() Option {
 	return func(xz *XZWriter) error {
 		xz.opts.extreme = true
@@ -37,6 +40,8 @@ func WithExtreme() Option {
 	}
 }
 
+// WithVerbose sets verbosity and takes a writer that will be connected to STDERR of the xz subprocess.  This provides
+// a nice progress output to look at.
 func WithVerbose(stderr io.Writer) Option {
 	return func(xz *XZWriter) error {
 		xz.opts.verboseWriter = stderr
