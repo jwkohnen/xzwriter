@@ -4,7 +4,7 @@ import "syscall"
 
 func sysProcAttr() *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{
-		Setpgid:   true,
-		Pgid:      0,
+		Setpgid: true,
+		Pgid:    0,
 	}
 }
