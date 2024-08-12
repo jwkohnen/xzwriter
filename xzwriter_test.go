@@ -1,5 +1,3 @@
-//go:build !linux && !darwin
-
 /*
  * Copyright (c) 2024 Johannes Kohnen <jwkohnen-github@ko-sys.com>
  *
@@ -24,8 +22,46 @@
 
 package xzwriter
 
-import "syscall"
+import (
+	"context"
+	"errors"
+	"io"
+	"runtime"
+	"testing"
+)
 
-func WithSeparateProcessGroup() Option  { return func(_ *XZWriter) error { return ErrOptionIllegal } }
-func WithNiceness(_ int) Option         { return func(_ *XZWriter) error { return ErrOptionIllegal } }
-func sysProcAttr() *syscall.SysProcAttr { return nil }
+func TestWithNiceness(t *testing.T) {
+	xz, err := NewWithOptions(context.Background(), io.Discard, WithNiceness(20))
+	switch runtime.GOOS {
+	case "windows":
+		if !errors.Is(err, ErrOptionIllegal) {
+			t.Errorf("want %T, but got %T: %v", ErrOptionIllegal, err, err)
+		}
+	default:
+		if err != nil {
+			t.Fatalf("want no error, but got %v", err)
+		}
+	}
+
+	if _, e := xz.Write([]byte("Hallo du da im Fernsehen!")); e != nil {
+		t.Error(e)
+	}
+
+	if e := xz.Close(); e != nil {
+		t.Error(e)
+	}
+}
+
+// avoid annoying "no usage" warnings in IDE
+var (
+	_ = New
+	_ = WithCompressLevel
+	_ = WithExtreme
+	_ = WithVerbose
+	_ = WithSeparateProcessGroup
+)
+
+// asserts
+var (
+	_ io.WriteCloser = (*XZWriter)(nil)
+)

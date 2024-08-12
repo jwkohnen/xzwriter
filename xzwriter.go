@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Johannes Kohnen <jwkohnen-github@ko-sys.com>
+ * Copyright (c) 2024 Johannes Kohnen <jwkohnen-github@ko-sys.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ func New(w io.Writer) (*XZWriter, error) {
 // be used to cancel or timeout the external compressor process.
 //
 // The context can be used to kill the external process early. You still need to
-// call Close() to clean up ressources. Alternatively you may call Close()
+// call Close() to clean up resources. Alternatively you may call Close()
 // prematurely.
 func NewWithContext(ctx context.Context, w io.Writer) (*XZWriter, error) {
 	return NewWithOptions(ctx, w)
@@ -54,7 +54,7 @@ func NewWithContext(ctx context.Context, w io.Writer) (*XZWriter, error) {
 // be used to cancel or timeout the external compressor process.
 //
 // The context can be used to kill the external process early. You still need to
-// call Close() to clean up ressources. Alternatively you may call Close()
+// call Close() to clean up resources. Alternatively you may call Close()
 // prematurely.
 //
 // The compressor process can be configured with options.
@@ -76,7 +76,13 @@ func NewWithOptions(ctx context.Context, w io.Writer, opts ...Option) (*XZWriter
 		}
 	}
 
-	xz.cmd = exec.CommandContext(ctx, "xz", xz.compileArgs()...)
+	if xz.opts.niceness == 0 {
+		xz.cmd = exec.CommandContext(ctx, "xz", xz.compileArgs()...)
+	} else {
+		args := append([]string{"-n", strconv.Itoa(xz.opts.niceness), "xz"}, xz.compileArgs()...)
+		xz.cmd = exec.CommandContext(ctx, "nice", args...)
+	}
+
 	xz.cmd.Stdout = w
 
 	if xz.opts.verboseWriter != nil {
@@ -110,9 +116,8 @@ func (xz *XZWriter) Write(p []byte) (n int, err error) {
 func (xz *XZWriter) Close() error {
 	errPipe := xz.pipe.Close()
 
-	errWait := xz.cmd.Wait()
-	if errWait != nil {
-		return errWait
+	if e := xz.cmd.Wait(); e != nil {
+		return e
 	}
 
 	return errPipe
@@ -135,5 +140,3 @@ func (xz *XZWriter) compileArgs() []string {
 
 	return append(args, "--", "-")
 }
-
-var _ io.WriteCloser = (*XZWriter)(nil) // assert
