@@ -138,5 +138,13 @@ func (xz *XZWriter) compileArgs() []string {
 		args = append(args, "--quiet")
 	}
 
+	if xz.opts.xzThreads == -1 {
+		args = append(args, "--threads=+1")
+	} else if xz.opts.xzThreads > 0 {
+		args = append(args, "--threads="+strconv.Itoa(xz.opts.xzThreads))
+	} else {
+		// do nothing for `< -1` and `0`
+	}
+
 	return append(args, "--", "-")
 }

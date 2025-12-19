@@ -72,10 +72,24 @@ func WithVerbose(stderr io.Writer) Option {
 	}
 }
 
+// WithThreads specifies the number of threads the xz command should use.  If this option is not used or if `n=0` is
+// specified, no parameter is passed to the xz subprocess which means it "makes xz use up to as many threads as the
+// processor(s) on the system  support."  The value `n=1` will use single-threaded mode, which means only one thread is
+// used for compression and decompression can use only one thread.  The value `n=-1` will use a single thread, but in
+// multi-threaded mode, i.e. decompression is able to use multiple threads.
+func WithThreads(n int) Option {
+	return func(xz *XZWriter) error {
+		xz.opts.xzThreads = n
+
+		return nil
+	}
+}
+
 type options struct {
 	compressLevel        int
 	extreme              bool
 	verboseWriter        io.Writer
 	separateProcessGroup bool
 	niceness             int
+	xzThreads            int
 }
